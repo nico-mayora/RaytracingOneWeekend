@@ -1,6 +1,7 @@
 use super::ray::*;
 use super::rtweekend::*;
 
+#[derive(Debug)]
 pub struct HitRecord {
     pub p: Point3,
     pub t: f64,
