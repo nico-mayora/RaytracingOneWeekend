@@ -6,6 +6,9 @@ use raytracing::ray::*;
 use raytracing::rtweekend::*;
 use raytracing::sphere::*;
 
+use rayon::prelude::*;
+use chrono::prelude::*;
+use image::{ImageBuffer, RgbImage};
 use std::sync::Arc;
 
 fn ray_colour(r: &Ray, world: &dyn Hittable) -> Vec3 {
@@ -23,7 +26,8 @@ fn main() -> std::io::Result<()> {
     let aspect_ratio = 16. / 9.;
     let image_width = 400;
     let image_height = (image_width as f64 / aspect_ratio) as i32;
-    let samples_per_pixel = 100;
+    let samples_per_pixel = 3;
+    let mut img: RgbImage = ImageBuffer::new(image_width, image_height as u32);
 
     //World
     let mut world = HittableList::new_empty();
@@ -40,10 +44,8 @@ fn main() -> std::io::Result<()> {
     let cam = Camera::new();
 
     // Render
-    println!("P3\n{} {}\n255", image_width, image_height);
-
     for j in (0..image_height).rev() {
-        eprint!("\rScanlines remaining: {} ", j);
+        eprint!("\rScanlines remaining: {}", j);
 
         for i in 0..image_width as i32 {
             let mut pixel_colour = Colour::new(0., 0., 0.);
@@ -55,9 +57,12 @@ fn main() -> std::io::Result<()> {
                 let r = cam.ray_at_offset(u, v);
                 pixel_colour += ray_colour(&r, &world);
             }
-            write_colour(&mut std::io::stdout(), pixel_colour, samples_per_pixel)?;
+            write_to_img(&mut img, pixel_colour, samples_per_pixel, i, image_height-j-1);
         }
     }
+
+    let path = format!("out/{}.png", Utc::now().to_string());
+    img.save(path).unwrap();
 
     eprintln!("\nDone!\n");
     Ok(())
