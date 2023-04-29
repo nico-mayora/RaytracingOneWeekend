@@ -39,3 +39,5 @@ impl Hittable for HittableList {
         return temp_rec;
     }
 }
+
+unsafe impl Sync for HittableList { }
