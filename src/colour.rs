@@ -1,5 +1,6 @@
 use super::rtweekend::*;
 
+use num::clamp;
 use image::RgbImage;
 use std::io::Write;
 
