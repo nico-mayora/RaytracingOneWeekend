@@ -17,8 +17,9 @@ fn ray_colour(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
         return Colour::new(0., 0., 0.);
     } 
 
-    if let Some(rec) = world.hit(r, 0., INFTY) {
+    if let Some(rec) = world.hit(r, 0.001, INFTY) {
         let target: Point3 = rec.p + rec.normal + rand_unit_vector();
+        // let target = rec.p + rand_in_hemisphere(&rec.normal);
         return 0.5
             * ray_colour(
                 &Ray {
@@ -47,7 +48,7 @@ fn main() {
     //World
     let mut world = HittableList::new_empty();
     world.add(Arc::new(Sphere {
-        centre: Point3::new(0., -0.001, -1.),
+        centre: Point3::new(0., 0., -1.),
         radius: 0.5,
     }));
     world.add(Arc::new(Sphere {

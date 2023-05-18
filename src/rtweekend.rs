@@ -29,7 +29,7 @@ pub fn rand_in_unit_sphere() -> Vec3 {
     loop {
         let p = random_vec3();
         if p.norm_squared() >= 1. {
-           continue; 
+            continue;
         }
         return p;
     }
@@ -37,4 +37,13 @@ pub fn rand_in_unit_sphere() -> Vec3 {
 
 pub fn rand_unit_vector() -> Vec3 {
     rand_in_unit_sphere().normalize()
+}
+
+pub fn rand_in_hemisphere(normal: &Vec3) -> Vec3 {
+    let in_unit_sphere = rand_in_unit_sphere();
+    if in_unit_sphere.dot(normal) > 0. {
+        return in_unit_sphere;
+    } else {
+        return -in_unit_sphere;
+    }
 }
