@@ -68,7 +68,7 @@ fn main() {
         .unwrap(),
     );
 
-    // Render
+    // Render (every pixel is rendered in parallel thanks to Rayon)
     let colour_matrix: Vec<Vec<Colour>> = (0..image_height)
         .into_par_iter()
         .map(|j| {
