@@ -29,10 +29,11 @@ pub fn write_to_img(img: &mut RgbImage, pixel_colour: Colour, samples_per_pixel:
     let mut g = pixel_colour[1];
     let mut b = pixel_colour[2];
 
+    // Divide the colour by the number and gamma correct (gamma = 2)
     let scale = 1. / samples_per_pixel as f64;
-    r *= scale;
-    g *= scale;
-    b *= scale;
+    r = f64::sqrt(r * scale);
+    g = f64::sqrt(g * scale);
+    b = f64::sqrt(b * scale);
 
     *img.get_pixel_mut(posx as u32, posy as u32) = image::Rgb([(256. * clamp(r, 0., 0.999)) as u8,
                                            (256. * clamp(g, 0., 0.999)) as u8,

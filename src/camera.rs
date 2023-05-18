@@ -10,11 +10,13 @@ pub struct Camera {
 
 impl Camera {
     pub fn new() -> Self {
+        // Set image parameters
         let aspect_ratio = 16./9.;
         let viewport_height = 2.;
         let viewport_width = aspect_ratio * viewport_height;
         let focal_length = 1.;
 
+        // Set camera parameters
         let origin = Point3::new(0., 0., 0.);
         let horizontal = Vec3::new(viewport_width, 0., 0.);
         let vertical = Vec3::new(0., viewport_height, 0.);

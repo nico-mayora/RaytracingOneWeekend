@@ -12,9 +12,22 @@ use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use std::sync::Arc;
 
-fn ray_colour(r: &Ray, world: &dyn Hittable) -> Colour {
+fn ray_colour(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
+    if depth <= 0 {
+        return Colour::new(0., 0., 0.);
+    } 
+
     if let Some(rec) = world.hit(r, 0., INFTY) {
-        return 0.5 * (rec.normal + Colour::new(1., 1., 1.));
+        let target: Point3 = rec.p + rec.normal + rand_unit_vector();
+        return 0.5
+            * ray_colour(
+                &Ray {
+                    origin: rec.p,
+                    direction: target - rec.p,
+                },
+                world,
+                depth - 1,
+            );
     }
 
     let unit_direction = r.direction.normalize();
@@ -29,11 +42,12 @@ fn main() {
     let image_height = (image_width as f64 / aspect_ratio) as i32;
     let samples_per_pixel = 100;
     let mut img: RgbImage = ImageBuffer::new(image_width, image_height as u32);
+    let max_depth = 50;
 
     //World
     let mut world = HittableList::new_empty();
     world.add(Arc::new(Sphere {
-        centre: Point3::new(0., 0., -1.),
+        centre: Point3::new(0., -0.001, -1.),
         radius: 0.5,
     }));
     world.add(Arc::new(Sphere {
@@ -67,7 +81,7 @@ fn main() {
                         let v = (j as f64 + rand::random::<f64>()) / ((image_height - 1) as f64);
 
                         let r = cam.ray_at_offset(u, v);
-                        pixel_colour += ray_colour(&r, &world);
+                        pixel_colour += ray_colour(&r, &world, max_depth);
                     }
                     pixel_colour
                 })

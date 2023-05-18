@@ -1,4 +1,5 @@
 use nalgebra::Vector3;
+use rand::*;
 
 pub type Vec3 = Vector3<f64>;
 pub type Point3 = Vec3;
@@ -9,4 +10,31 @@ pub const PI: f64 = 3.1415926535897932385;
 
 pub fn deg_to_rad(deg: f64) -> f64 {
     deg * PI / 180.
+}
+
+pub fn random_vec3() -> Vec3 {
+    Vec3::new(rand::random(), rand::random(), rand::random())
+}
+
+pub fn random_vec3_range(min: f64, max: f64) -> Vec3 {
+    let mut rng = thread_rng();
+    Vec3::new(
+        rng.gen_range(min..max),
+        rng.gen_range(min..max),
+        rng.gen_range(min..max),
+    )
+}
+
+pub fn rand_in_unit_sphere() -> Vec3 {
+    loop {
+        let p = random_vec3();
+        if p.norm_squared() >= 1. {
+           continue; 
+        }
+        return p;
+    }
+}
+
+pub fn rand_unit_vector() -> Vec3 {
+    rand_in_unit_sphere().normalize()
 }
