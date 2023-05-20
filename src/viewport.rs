@@ -1,9 +1,3 @@
-// Each time a pixel colour is rendered, send it through a channel to another thread.
-// Said thread calls (or is) a function in this very file.
-// Each time a colour is received, a matrix is updated (O(1)),
-// and the screen is redrawn with this matrix.
-// If necessary, add a sleep between screen refreshes.
-
 use super::rtweekend::Colour;
 use num::clamp;
 use pixels::{Error, Pixels, SurfaceTexture};
@@ -15,6 +9,31 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 use winit_input_helper::WinitInputHelper;
+
+fn to_drawn_colour(pixel_colour: Colour, samples_per_pixel: i32) -> [u8; 4] {
+    let mut r = pixel_colour[0];
+    let mut g = pixel_colour[1];
+    let mut b = pixel_colour[2];
+
+    let scale = 1. / samples_per_pixel as f64;
+    r = f64::sqrt(r * scale);
+    g = f64::sqrt(g * scale);
+    b = f64::sqrt(b * scale);
+
+    [
+        (256. * clamp(r, 0., 0.999)) as u8,
+        (256. * clamp(g, 0., 0.999)) as u8,
+        (256. * clamp(b, 0., 0.999)) as u8,
+        0xFF,
+    ]
+}
+
+fn plot_pixel(buffer: &mut [u8], x: usize, y: usize, colour: &[u8], window_width: u32, window_height: u32) {
+    let y = (window_height - 1 - y as u32) as usize; // unflip
+    let i = x + y * window_width as usize * 4;
+
+    buffer[i..i + 4].copy_from_slice(colour);
+}
 
 #[derive(Debug)]
 pub struct ColourPosition {
@@ -37,10 +56,8 @@ impl ViewportRenderer {
 
         let window = {
             let size = LogicalSize::new(window_width as f64, window_height as f64);
-            let scaled_size = LogicalSize::new(window_width as f64 * 2., window_height as f64 * 2.);
             WindowBuilder::new()
                 .with_title("Render Result")
-                // .with_inner_size(scaled_size)
                 .with_min_inner_size(size)
                 .build(&event_loop)
                 .unwrap()
@@ -65,40 +82,33 @@ impl ViewportRenderer {
     }
 
     pub fn show_rendered_scene(&mut self, receiver: mpsc::Receiver<ColourPosition>) {
+        let mut colour_buffer: Vec<ColourPosition> = Vec::new();
         loop {
             let colour_pos = receiver.recv().unwrap();
+            colour_buffer.push(colour_pos);
 
-            let transformed_colour = to_drawn_colour(colour_pos.colour, self.samples_per_pixel);
+            // drawing pixels one by one takes too long
+            if colour_buffer.len() < 5000 {
+                continue;
+            }
 
             let mut frame = self.pixels.frame_mut();
-            plot_pixel(&mut frame, colour_pos.point.0 as usize, colour_pos.point.1 as usize, self.window_width as usize, &transformed_colour);
+            for cp in &colour_buffer {
+                let transformed_colour = to_drawn_colour(cp.colour, self.samples_per_pixel);
+                plot_pixel(
+                    &mut frame,
+                    cp.point.0 as usize,
+                    cp.point.1 as usize,
+                    &transformed_colour,
+                    self.window_width,
+                    self.window_height
+                );
+            }
+
+            colour_buffer.clear();
             self.pixels.render().unwrap();
         }
     }
-}
-
-fn to_drawn_colour(pixel_colour: Colour, samples_per_pixel: i32) -> [u8; 4] {
-    let mut r = pixel_colour[0];
-    let mut g = pixel_colour[1];
-    let mut b = pixel_colour[2];
-
-    let scale = 1. / samples_per_pixel as f64;
-    r = f64::sqrt(r * scale);
-    g = f64::sqrt(g * scale);
-    b = f64::sqrt(b * scale);
-
-    [
-        (256. * clamp(r, 0., 0.999)) as u8,
-        (256. * clamp(g, 0., 0.999)) as u8,
-        (256. * clamp(b, 0., 0.999)) as u8,
-        0xFF,
-    ]
-}
-
-fn plot_pixel(buffer: &mut [u8], x: usize, y: usize, stride: usize, colour: &[u8]) {
-    let i = x + y * stride * 4;
-
-    buffer[i..i + 4].copy_from_slice(colour);
 }
 
 unsafe impl Send for ViewportRenderer {}
