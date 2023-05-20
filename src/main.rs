@@ -5,17 +5,20 @@ use raytracing::hittable_list::*;
 use raytracing::ray::*;
 use raytracing::rtweekend::*;
 use raytracing::sphere::*;
+use raytracing::viewport::*;
 
 use chrono::prelude::*;
 use image::{ImageBuffer, RgbImage};
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
+use std::sync::mpsc;
 use std::sync::Arc;
+use std::thread;
 
 fn ray_colour(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
     if depth <= 0 {
         return Colour::new(0., 0., 0.);
-    } 
+    }
 
     if let Some(rec) = world.hit(r, 0.001, INFTY) {
         let target: Point3 = rec.p + rec.normal + rand_unit_vector();
@@ -60,6 +63,12 @@ fn main() {
     // Camera
     let cam = Camera::new();
 
+    // Show the scene as it's rendered in real time
+    let mut viewport = ViewportRenderer::new(image_width as u32, image_height as u32, samples_per_pixel);
+    let (sender, receiver) = mpsc::sync_channel::<ColourPosition>(10000000);
+    let viewport_thread_handle = thread::spawn(move || viewport.show_rendered_scene(receiver));
+
+    // Progress bar initialisation
     let pb = ProgressBar::new(image_height as u64);
     pb.set_style(
         ProgressStyle::with_template(
@@ -84,6 +93,13 @@ fn main() {
                         let r = cam.ray_at_offset(u, v);
                         pixel_colour += ray_colour(&r, &world, max_depth);
                     }
+
+                    sender
+                        .send(ColourPosition {
+                            colour: pixel_colour,
+                            point: (i, j as u32),
+                        })
+                        .unwrap();
                     pixel_colour
                 })
                 .collect();
@@ -101,7 +117,7 @@ fn main() {
                 *pixel,
                 samples_per_pixel,
                 i as i32,
-                image_height - 1 - j as i32,
+                image_height - 1 - j as i32, // png is flipped
             );
         }
     }
@@ -110,4 +126,5 @@ fn main() {
     img.save(path).unwrap();
 
     eprintln!("\nDone!\n");
+    viewport_thread_handle.join().unwrap();
 }
