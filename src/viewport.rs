@@ -1,14 +1,12 @@
 use super::rtweekend::Colour;
 use num::clamp;
-use pixels::{Error, Pixels, SurfaceTexture};
+use pixels::{Pixels, SurfaceTexture};
 use std::sync::mpsc;
 use winit::{
     dpi::LogicalSize,
-    event::{Event, VirtualKeyCode},
-    event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
+    event_loop::EventLoop,
+    window::WindowBuilder,
 };
-use winit_input_helper::WinitInputHelper;
 
 const PIXEL_BATCH_SIZE: usize = 500;
 
@@ -47,8 +45,6 @@ pub struct ViewportRenderer {
     window_width: u32,
     window_height: u32,
     samples_per_pixel: i32,
-    window: Window,
-    event_loop: EventLoop<()>,
     pixels: Pixels,
 }
 
@@ -79,9 +75,7 @@ impl ViewportRenderer {
             pixels,
             window_width,
             window_height,
-            event_loop,
             samples_per_pixel,
-            window,
         }
     }
 
