@@ -30,7 +30,7 @@ fn to_drawn_colour(pixel_colour: Colour, samples_per_pixel: i32) -> [u8; 4] {
 
 fn plot_pixel(buffer: &mut [u8], x: usize, y: usize, colour: &[u8], window_width: u32, window_height: u32) {
     let y = (window_height - 1 - y as u32) as usize; // unflip
-    let i = x + y * window_width as usize * 4;
+    let i = (x + y * window_width as usize) * 4;
 
     buffer[i..i + 4].copy_from_slice(colour);
 }
@@ -56,8 +56,10 @@ impl ViewportRenderer {
 
         let window = {
             let size = LogicalSize::new(window_width as f64, window_height as f64);
+            let scaled_size = LogicalSize::new(window_width as f64 * 2., window_width as f64 * 2.);
             WindowBuilder::new()
                 .with_title("Render Result")
+                .with_inner_size(scaled_size)
                 .with_min_inner_size(size)
                 .build(&event_loop)
                 .unwrap()
