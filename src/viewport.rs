@@ -10,6 +10,8 @@ use winit::{
 };
 use winit_input_helper::WinitInputHelper;
 
+const PIXEL_BATCH_SIZE: usize = 500;
+
 fn to_drawn_colour(pixel_colour: Colour, samples_per_pixel: i32) -> [u8; 4] {
     let mut r = pixel_colour[0];
     let mut g = pixel_colour[1];
@@ -90,7 +92,7 @@ impl ViewportRenderer {
             colour_buffer.push(colour_pos);
 
             // drawing pixels one by one takes too long
-            if colour_buffer.len() < 5000 {
+            if colour_buffer.len() < PIXEL_BATCH_SIZE {
                 continue;
             }
 
