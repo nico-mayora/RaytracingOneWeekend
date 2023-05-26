@@ -1,3 +1,5 @@
+// Implement ""eventually"" the logic for handling events and the window properly :)
+
 use super::rtweekend::Colour;
 use num::clamp;
 use pixels::{Pixels, SurfaceTexture};
@@ -5,10 +7,11 @@ use std::sync::mpsc;
 use winit::{
     dpi::LogicalSize,
     event_loop::EventLoop,
-    window::WindowBuilder,
+    window::{Window, WindowBuilder},
 };
 
-const PIXEL_BATCH_SIZE: usize = 500;
+const PIXEL_BATCH_SIZE: usize = 5000;
+const WINDOW_SCALE: f64 = 1.;
 
 fn to_drawn_colour(pixel_colour: Colour, samples_per_pixel: i32) -> [u8; 4] {
     let mut r = pixel_colour[0];
@@ -28,7 +31,14 @@ fn to_drawn_colour(pixel_colour: Colour, samples_per_pixel: i32) -> [u8; 4] {
     ]
 }
 
-fn plot_pixel(buffer: &mut [u8], x: usize, y: usize, colour: &[u8], window_width: u32, window_height: u32) {
+fn plot_pixel(
+    buffer: &mut [u8],
+    x: usize,
+    y: usize,
+    colour: &[u8],
+    window_width: u32,
+    window_height: u32,
+) {
     let y = (window_height - 1 - y as u32) as usize; // unflip
     let i = (x + y * window_width as usize) * 4;
 
@@ -45,6 +55,7 @@ pub struct ViewportRenderer {
     window_width: u32,
     window_height: u32,
     samples_per_pixel: i32,
+    _window: Window,
     pixels: Pixels,
 }
 
@@ -54,7 +65,7 @@ impl ViewportRenderer {
 
         let window = {
             let size = LogicalSize::new(window_width as f64, window_height as f64);
-            let scaled_size = LogicalSize::new(window_width as f64 * 2., window_width as f64 * 2.);
+            let scaled_size = LogicalSize::new(window_width as f64 * WINDOW_SCALE, window_width as f64 * WINDOW_SCALE);
             WindowBuilder::new()
                 .with_title("Render Result")
                 .with_inner_size(scaled_size)
@@ -76,18 +87,19 @@ impl ViewportRenderer {
             window_width,
             window_height,
             samples_per_pixel,
+            _window: window,
         }
     }
 
     pub fn show_rendered_scene(&mut self, receiver: mpsc::Receiver<ColourPosition>) {
         let mut colour_buffer: Vec<ColourPosition> = Vec::new();
         loop {
-            let colour_pos = receiver.recv().unwrap();
-            colour_buffer.push(colour_pos);
+            if let Ok(cp) = receiver.recv() {
+                colour_buffer.push(cp);
 
-            // drawing pixels one by one takes too long
-            if colour_buffer.len() < PIXEL_BATCH_SIZE {
-                continue;
+                if colour_buffer.len() < PIXEL_BATCH_SIZE {
+                    continue;
+                }
             }
 
             let mut frame = self.pixels.frame_mut();
@@ -99,13 +111,14 @@ impl ViewportRenderer {
                     cp.point.1 as usize,
                     &transformed_colour,
                     self.window_width,
-                    self.window_height
+                    self.window_height,
                 );
             }
 
             colour_buffer.clear();
             self.pixels.render().unwrap();
         }
+        // add code for eventhandling
     }
 }
 

@@ -42,7 +42,7 @@ fn ray_colour(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
 fn main() {
     // Image
     let aspect_ratio = 16. / 9.;
-    let image_width = 400;
+    let image_width = 1000;
     let image_height = (image_width as f64 / aspect_ratio) as i32;
     let samples_per_pixel = 100;
     let mut img: RgbImage = ImageBuffer::new(image_width, image_height as u32);
@@ -122,6 +122,7 @@ fn main() {
         }
     }
 
+    drop(sender);
     let path = format!("out/{}.png", Utc::now().to_string());
     img.save(path).unwrap();
 
