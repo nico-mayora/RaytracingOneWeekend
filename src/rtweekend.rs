@@ -6,6 +6,7 @@ pub type Point3 = Vec3;
 pub type Colour = Vec3;
 
 pub const INFTY: f64 = f64::MAX;
+pub const EPS: f64 = 1e-8;
 pub const PI: f64 = 3.1415926535897932385;
 
 pub fn deg_to_rad(deg: f64) -> f64 {

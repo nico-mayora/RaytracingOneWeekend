@@ -11,8 +11,8 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-const PIXEL_BATCH_SIZE: usize = 5000;
-const WINDOW_SCALE: f64 = 1.;
+const PIXEL_BATCH_SIZE: usize = 10_000;
+const WINDOW_SCALE: f64 = 0.1;
 
 fn to_drawn_colour(pixel_colour: Colour, samples_per_pixel: i32) -> [u8; 4] {
     let mut r = pixel_colour[0];
@@ -123,4 +123,4 @@ impl ViewportRenderer {
     }
 }
 
-unsafe impl Send for ViewportRenderer {}
+// unsafe impl Send for ViewportRenderer {}

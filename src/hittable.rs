@@ -1,14 +1,14 @@
 use super::material::Material;
 use super::ray::*;
 use super::rtweekend::*;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct HitRecord {
     pub p: Point3,
     pub t: f64,
     pub normal: Vec3,
     pub front_face: bool,
-    pub mat: Rc<dyn Material>,
+    pub mat: Arc<dyn Material>,
 }
 
 impl HitRecord {
@@ -17,7 +17,7 @@ impl HitRecord {
         t: f64,
         r: &Ray,
         outward_normal: &Vec3,
-        mat: Rc<dyn Material>,
+        mat: Arc<dyn Material>,
     ) -> Self {
         let fields = Self::calculate_face_normal(r, outward_normal);
         HitRecord {

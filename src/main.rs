@@ -1,11 +1,14 @@
 use raytracing::camera::*;
+
 use raytracing::colour::*;
 use raytracing::hittable::*;
 use raytracing::hittable_list::*;
 use raytracing::ray::*;
 use raytracing::rtweekend::*;
 use raytracing::sphere::*;
+use raytracing::vec3rtext::*;
 use raytracing::viewport::*;
+use raytracing::material::*;
 
 use chrono::prelude::*;
 use image::{ImageBuffer, RgbImage};
@@ -21,17 +24,10 @@ fn ray_colour(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
     }
 
     if let Some(rec) = world.hit(r, 0.001, INFTY) {
-        let target: Point3 = rec.p + rec.normal + rand_unit_vector();
-        // let target = rec.p + rand_in_hemisphere(&rec.normal);
-        return 0.5
-            * ray_colour(
-                &Ray {
-                    origin: rec.p,
-                    direction: target - rec.p,
-                },
-                world,
-                depth - 1,
-            );
+        if let Some((attenuation, scattered)) = rec.mat.scatter(r, &rec) {
+            return attenuation.mul(ray_colour(&scattered, world, depth - 1));
+        }
+        return Colour::new(0., 0., 0.);
     }
 
     let unit_direction = r.direction.normalize();
@@ -41,6 +37,7 @@ fn ray_colour(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
 
 fn main() {
     // Image
+
     let aspect_ratio = 16. / 9.;
     let image_width = 1000;
     let image_height = (image_width as f64 / aspect_ratio) as i32;
@@ -49,14 +46,33 @@ fn main() {
     let max_depth = 50;
 
     //World
+
     let mut world = HittableList::new_empty();
-    world.add(Arc::new(Sphere {
-        centre: Point3::new(0., 0., -1.),
-        radius: 0.5,
-    }));
+
+    let material_ground = Arc::new(Lambertian { albedo: Colour::new(0.8,0.8,0.0) });
+    let material_centre = Arc::new(Lambertian { albedo: Colour::new(0.7,0.3,0.3) });
+    let material_left   = Arc::new(Metal { albedo: Colour::new(0.8,0.8,0.8) });
+    let material_right  = Arc::new(Metal { albedo: Colour::new(0.8,0.6,0.2) });
+
     world.add(Arc::new(Sphere {
         centre: Point3::new(0., -100.5, -1.),
         radius: 100.,
+        mat: material_ground,
+    }));
+    world.add(Arc::new(Sphere {
+        centre: Point3::new(0., 0., -1.),
+        radius: 0.5,
+        mat: material_centre,
+    }));
+    world.add(Arc::new(Sphere {
+        centre: Point3::new(-1., 0., -1.),
+        radius: 0.5,
+        mat: material_left,
+    }));
+    world.add(Arc::new(Sphere {
+        centre: Point3::new(1., 0., -1.),
+        radius: 0.5,
+        mat: material_right,
     }));
     let world = world;
 
@@ -64,7 +80,8 @@ fn main() {
     let cam = Camera::new();
 
     // Show the scene as it's rendered in real time
-    let mut viewport = ViewportRenderer::new(image_width as u32, image_height as u32, samples_per_pixel);
+    let mut viewport =
+        ViewportRenderer::new(image_width as u32, image_height as u32, samples_per_pixel);
     let (sender, receiver) = mpsc::sync_channel::<ColourPosition>(10000000);
     let viewport_thread_handle = thread::spawn(move || viewport.show_rendered_scene(receiver));
 

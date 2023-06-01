@@ -7,3 +7,4 @@ pub mod hittable_list;
 pub mod camera;
 pub mod viewport;
 pub mod material;
+pub mod vec3rtext;
