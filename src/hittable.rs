@@ -1,18 +1,32 @@
+use super::material::Material;
 use super::ray::*;
 use super::rtweekend::*;
+use std::rc::Rc;
 
-#[derive(Debug)]
 pub struct HitRecord {
     pub p: Point3,
     pub t: f64,
     pub normal: Vec3,
     pub front_face: bool,
+    pub mat: Rc<dyn Material>,
 }
 
 impl HitRecord {
-    pub fn new(p: Point3, t: f64, r: &Ray, outward_normal: &Vec3) -> Self {
+    pub fn new(
+        p: Point3,
+        t: f64,
+        r: &Ray,
+        outward_normal: &Vec3,
+        mat: Rc<dyn Material>,
+    ) -> Self {
         let fields = Self::calculate_face_normal(r, outward_normal);
-        HitRecord { p, t, normal: fields.1, front_face: fields.0 }
+        HitRecord {
+            p,
+            t,
+            normal: fields.1,
+            front_face: fields.0,
+            mat,
+        }
     }
 
     pub fn set_face_normal(&mut self, r: &Ray, outward_normal: &Vec3) {

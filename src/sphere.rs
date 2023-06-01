@@ -1,10 +1,13 @@
 use super::hittable::*;
 use super::ray::*;
 use super::rtweekend::*;
+use super::material::Material;
+use std::rc::Rc;
 
 pub struct Sphere {
     pub centre: Point3,
     pub radius: f64,
+    pub mat: Rc<dyn Material>,
 }
 
 impl Hittable for Sphere {
@@ -32,6 +35,6 @@ impl Hittable for Sphere {
         let p = r.at(t);
         let outward_normal = (p - self.centre) / self.radius;
 
-        Some(HitRecord::new(p, t, r, &outward_normal))
+        Some(HitRecord::new(p, t, r, &outward_normal, Rc::clone(&self.mat)))
     }
 }
