@@ -3,12 +3,12 @@ use raytracing::camera::*;
 use raytracing::colour::*;
 use raytracing::hittable::*;
 use raytracing::hittable_list::*;
+use raytracing::material::*;
 use raytracing::ray::*;
 use raytracing::rtweekend::*;
 use raytracing::sphere::*;
 use raytracing::vec3rtext::*;
 use raytracing::viewport::*;
-use raytracing::material::*;
 
 use chrono::prelude::*;
 use image::{ImageBuffer, RgbImage};
@@ -25,7 +25,7 @@ fn ray_colour(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
 
     if let Some(rec) = world.hit(r, 0.001, INFTY) {
         if let Some((attenuation, scattered)) = rec.mat.scatter(r, &rec) {
-            return attenuation.mul(ray_colour(&scattered, world, depth - 1));
+            return attenuation.mul(&ray_colour(&scattered, world, depth - 1));
         }
         return Colour::new(0., 0., 0.);
     }
@@ -39,20 +39,27 @@ fn main() {
     // Image
 
     let aspect_ratio = 16. / 9.;
-    let image_width = 1000;
+    let image_width = 800;
     let image_height = (image_width as f64 / aspect_ratio) as i32;
-    let samples_per_pixel = 100;
+    let samples_per_pixel = 50;
     let mut img: RgbImage = ImageBuffer::new(image_width, image_height as u32);
-    let max_depth = 50;
+    let max_depth = 20;
 
     //World
 
     let mut world = HittableList::new_empty();
 
-    let material_ground = Arc::new(Lambertian { albedo: Colour::new(0.8,0.8,0.0) });
-    let material_centre = Arc::new(Lambertian { albedo: Colour::new(0.7,0.3,0.3) });
-    let material_left   = Arc::new(Metal { albedo: Colour::new(0.8,0.8,0.8), fuzz: 0.3 });
-    let material_right  = Arc::new(Metal { albedo: Colour::new(0.8,0.6,0.2), fuzz: 1. });
+    let material_ground = Arc::new(Lambertian {
+        albedo: Colour::new(0.8, 0.8, 0.),
+    });
+    let material_centre = Arc::new(Lambertian {
+        albedo: Colour::new(0.1, 0.2, 0.5),
+    });
+    let material_left = Arc::new(Dielectric { ir: 1.5 });
+    let material_right = Arc::new(Metal {
+        albedo: Colour::new(0.8, 0.6, 0.2),
+        fuzz: 0.,
+    });
 
     world.add(Arc::new(Sphere {
         centre: Point3::new(0., -100.5, -1.),
@@ -67,7 +74,12 @@ fn main() {
     world.add(Arc::new(Sphere {
         centre: Point3::new(-1., 0., -1.),
         radius: 0.5,
-        mat: material_left,
+        mat: material_left.clone(),
+    }));
+    world.add(Arc::new(Sphere {
+        centre: Point3::new(-1., 0., -1.),
+        radius: -0.4,
+        mat: material_left.clone(),
     }));
     world.add(Arc::new(Sphere {
         centre: Point3::new(1., 0., -1.),
