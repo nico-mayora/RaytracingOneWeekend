@@ -51,8 +51,8 @@ fn main() {
 
     let material_ground = Arc::new(Lambertian { albedo: Colour::new(0.8,0.8,0.0) });
     let material_centre = Arc::new(Lambertian { albedo: Colour::new(0.7,0.3,0.3) });
-    let material_left   = Arc::new(Metal { albedo: Colour::new(0.8,0.8,0.8) });
-    let material_right  = Arc::new(Metal { albedo: Colour::new(0.8,0.6,0.2) });
+    let material_left   = Arc::new(Metal { albedo: Colour::new(0.8,0.8,0.8), fuzz: 0.3 });
+    let material_right  = Arc::new(Metal { albedo: Colour::new(0.8,0.6,0.2), fuzz: 1. });
 
     world.add(Arc::new(Sphere {
         centre: Point3::new(0., -100.5, -1.),
