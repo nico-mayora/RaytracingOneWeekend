@@ -1,5 +1,5 @@
-use super::rtweekend::*;
 use super::ray::*;
+use super::rtweekend::*;
 
 pub struct Camera {
     origin: Point3,
@@ -9,23 +9,33 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new() -> Self {
-        // Set image parameters
-        let aspect_ratio = 16./9.;
-        let viewport_height = 2.;
+    pub fn new(lookfrom: Point3, lookat: Point3, vup: Vec3, vfov: f64, aspect_ratio: f64) -> Self {
+        let theta = deg_to_rad(vfov);
+        let h = f64::tan(theta / 2.);
+        let viewport_height = 2. * h;
         let viewport_width = aspect_ratio * viewport_height;
-        let focal_length = 1.;
 
-        // Set camera parameters
-        let origin = Point3::new(0., 0., 0.);
-        let horizontal = Vec3::new(viewport_width, 0., 0.);
-        let vertical = Vec3::new(0., viewport_height, 0.);
-        let lower_left_corner = origin - horizontal*0.5 - vertical*0.5 - Vec3::new(0., 0., focal_length);
+        let w = (lookfrom - lookat).normalize();
+        let u = vup.cross(&w).normalize();
+        let v = w.cross(&u);
 
-        Self { origin, horizontal, vertical, lower_left_corner }
+        let origin = lookfrom;
+        let horizontal = viewport_width * u;
+        let vertical = viewport_height * v;
+        let lower_left_corner = origin - horizontal / 2. - vertical / 2. - w;
+
+        Self {
+            origin,
+            horizontal,
+            vertical,
+            lower_left_corner,
+        }
     }
 
-    pub fn ray_at_offset(&self, u: f64, v: f64) -> Ray {
-        Ray { origin: self.origin , direction: self.lower_left_corner + u*self.horizontal + v*self.vertical - self.origin}
+    pub fn get_ray(&self, s: f64, t: f64) -> Ray {
+        Ray {
+            origin: self.origin,
+            direction: self.lower_left_corner + s * self.horizontal + t * self.vertical - self.origin,
+        }
     }
 }

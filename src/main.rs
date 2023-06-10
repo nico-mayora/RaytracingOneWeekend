@@ -45,7 +45,7 @@ fn main() {
     let mut img: RgbImage = ImageBuffer::new(image_width, image_height as u32);
     let max_depth = 20;
 
-    //World
+    // World
 
     let mut world = HittableList::new_empty();
 
@@ -86,10 +86,16 @@ fn main() {
         radius: 0.5,
         mat: material_right,
     }));
-    let world = world;
+    let world = world; // unmut
 
     // Camera
-    let cam = Camera::new();
+    let cam = Camera::new(
+        Point3::new(-2., 2., 1.),
+        Point3::new(0., 0., -1.),
+        Vec3::new(0., 1., 0.),
+        20.,
+        aspect_ratio,
+    );
 
     // Show the scene as it's rendered in real time
     let mut viewport =
@@ -119,7 +125,7 @@ fn main() {
                         let u = (i as f64 + rand::random::<f64>()) / ((image_width - 1) as f64);
                         let v = (j as f64 + rand::random::<f64>()) / ((image_height - 1) as f64);
 
-                        let r = cam.ray_at_offset(u, v);
+                        let r = cam.get_ray(u, v);
                         pixel_colour += ray_colour(&r, &world, max_depth);
                     }
 
