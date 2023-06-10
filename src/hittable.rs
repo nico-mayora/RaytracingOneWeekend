@@ -12,13 +12,7 @@ pub struct HitRecord {
 }
 
 impl HitRecord {
-    pub fn new(
-        p: Point3,
-        t: f64,
-        r: &Ray,
-        outward_normal: &Vec3,
-        mat: Arc<dyn Material>,
-    ) -> Self {
+    pub fn new(p: Point3, t: f64, r: &Ray, outward_normal: &Vec3, mat: Arc<dyn Material>) -> Self {
         let fields = Self::calculate_face_normal(r, outward_normal);
         HitRecord {
             p,

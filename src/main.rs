@@ -10,6 +10,7 @@ use raytracing::sphere::*;
 use raytracing::vec3rtext::*;
 use raytracing::viewport::*;
 
+use winit::event_loop::EventLoop;
 use chrono::prelude::*;
 use image::{ImageBuffer, RgbImage};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -98,10 +99,8 @@ fn main() {
     );
 
     // Show the scene as it's rendered in real time
-    let mut viewport =
-        ViewportRenderer::new(image_width as u32, image_height as u32, samples_per_pixel);
     let (sender, receiver) = mpsc::sync_channel::<ColourPosition>(10000000);
-    let viewport_thread_handle = thread::spawn(move || viewport.show_rendered_scene(receiver));
+    let viewport_thread_handle = thread::spawn(move || show_rendered_scene(image_width, image_height as u32, samples_per_pixel, receiver));
 
     // Progress bar initialisation
     let pb = ProgressBar::new(image_height as u64);
@@ -128,13 +127,10 @@ fn main() {
                         let r = cam.get_ray(u, v);
                         pixel_colour += ray_colour(&r, &world, max_depth);
                     }
-
-                    sender
-                        .send(ColourPosition {
-                            colour: pixel_colour,
-                            point: (i, j as u32),
-                        })
-                        .unwrap();
+                    match sender.send(ColourPosition { colour: pixel_colour, point: (i, j as u32), }) {
+                        Ok(smart) => println!("smart: {:?}", smart),
+                        Err(bogus) => {/* dbg!(bogus.to_string()); */},
+                    }
                     pixel_colour
                 })
                 .collect();

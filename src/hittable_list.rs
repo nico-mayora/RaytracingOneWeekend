@@ -8,11 +8,15 @@ pub struct HittableList {
 
 impl HittableList {
     pub fn new_empty() -> Self {
-        Self { objects: Vec::new() } 
+        Self {
+            objects: Vec::new(),
+        }
     }
 
     pub fn from_hittable(object: Arc<dyn Hittable>) -> Self {
-        Self { objects: vec![object] }
+        Self {
+            objects: vec![object],
+        }
     }
 
     pub fn add(&mut self, object: Arc<dyn Hittable>) {
@@ -31,7 +35,7 @@ impl Hittable for HittableList {
 
         for object in &self.objects {
             if let Some(hit_rec) = object.hit(r, t_min, closest_so_far) {
-                closest_so_far = hit_rec.t; 
+                closest_so_far = hit_rec.t;
                 temp_rec = Some(hit_rec);
             }
         }
@@ -40,4 +44,4 @@ impl Hittable for HittableList {
     }
 }
 
-unsafe impl Sync for HittableList { }
+unsafe impl Sync for HittableList {}

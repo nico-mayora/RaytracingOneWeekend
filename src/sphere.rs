@@ -1,7 +1,7 @@
 use super::hittable::*;
+use super::material::Material;
 use super::ray::*;
 use super::rtweekend::*;
-use super::material::Material;
 use std::sync::Arc;
 
 pub struct Sphere {
@@ -35,6 +35,12 @@ impl Hittable for Sphere {
         let p = r.at(t);
         let outward_normal = (p - self.centre) / self.radius;
 
-        Some(HitRecord::new(p, t, r, &outward_normal, Arc::clone(&self.mat)))
+        Some(HitRecord::new(
+            p,
+            t,
+            r,
+            &outward_normal,
+            Arc::clone(&self.mat),
+        ))
     }
 }
