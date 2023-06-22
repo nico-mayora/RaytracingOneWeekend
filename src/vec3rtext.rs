@@ -1,5 +1,6 @@
 use super::rtweekend::*;
 
+// Extensions to nalgebra's Vector implementation for use in this project.
 pub trait Vec3RTExt {
     fn near_zero(&self) -> bool;
     fn mul(&self, x: &Self) -> Self;

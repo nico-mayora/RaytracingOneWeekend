@@ -89,12 +89,17 @@ fn main() {
     let world = world; // unmut
 
     // Camera
+    let lookfrom = Point3::new(3., 3., 2.);
+    let lookat = Point3::new(0., 0., -1.);
+
     let cam = Camera::new(
-        Point3::new(-2., 2., 1.),
-        Point3::new(0., 0., -1.),
-        Vec3::new(0., 1., 0.),
-        20.,
+        lookfrom,
+        lookat,
+        Point3::new(0., 1., 0.),    // vup
+        20.,                        // vfov
         aspect_ratio,
+        2.,                         // aperture
+        (lookfrom - lookat).norm(), // focus_dist
     );
 
     // Show the scene as it's rendered in real time
