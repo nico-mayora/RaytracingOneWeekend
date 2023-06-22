@@ -13,10 +13,82 @@ use raytracing::viewport::*;
 use chrono::prelude::*;
 use image::{ImageBuffer, RgbImage};
 use indicatif::{ProgressBar, ProgressStyle};
+use rand::*;
 use rayon::prelude::*;
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread;
+
+fn random_scene() -> HittableList {
+    let mut world = HittableList::new_empty();
+
+    let ground_material = Arc::new(Lambertian {
+        albedo: Colour::new(0.5, 0.5, 0.5),
+    });
+
+    world.add(Arc::new(Sphere {
+        centre: Point3::new(0., -1000., 0.),
+        radius: 1000.,
+        mat: ground_material,
+    }));
+
+    for a in -11..11 {
+        for b in -11..11 {
+            let choose_mat = rand::random::<f64>();
+
+            let centre = Point3::new(
+                a as f64 + rand::random::<f64>() * 0.9,
+                0.2,
+                b as f64 + rand::random::<f64>() * 0.9,
+            );
+
+            if (centre - Point3::new(4., 0.2, 0.)).norm() > 0.9 {
+                let sphere_material: Arc<dyn Material> = if choose_mat < 0.75 {
+                    // diffuse
+                    let albedo = random_vec3().mul(&random_vec3());
+                    Arc::new(Lambertian { albedo })
+                } else if choose_mat < 0.92 {
+                    // metal
+                    let albedo = random_vec3_range(0., 1.);
+                    let fuzz = rand::thread_rng().gen_range(0.0..0.5);
+                    Arc::new(Metal { albedo, fuzz })
+                } else {
+                    // glass
+                    Arc::new(Dielectric { ir: 1.5 })
+                };
+
+                world.add(Arc::new(Sphere {
+                    centre,
+                    radius: 0.2,
+                    mat: sphere_material,
+                }));
+            }
+        }
+    }
+
+    let mat1 = Arc::new(Dielectric { ir: 1.5 });
+    world.add(Arc::new(Sphere {
+        centre: Point3::new(0., 1., 0.),
+        radius: 1.,
+        mat: mat1,
+    }));
+
+    let mat2 = Arc::new(Lambertian { albedo: Colour::new(0.4, 0.2, 0.1) });
+    world.add(Arc::new(Sphere {
+        centre: Point3::new(-4., 1., 0.),
+        radius: 1.,
+        mat: mat2,
+    }));
+
+    let mat3 = Arc::new(Metal { albedo: Colour::new(0.7, 0.6, 0.5), fuzz: 0. });
+    world.add(Arc::new(Sphere {
+        centre: Point3::new(4., 1., 0.),
+        radius: 1.,
+        mat: mat3,
+    }));
+
+    world
+}
 
 fn ray_colour(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
     if depth <= 0 {
@@ -38,68 +110,31 @@ fn ray_colour(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
 fn main() {
     // Image
 
-    let aspect_ratio = 16. / 9.;
-    let image_width = 800;
+    let aspect_ratio = 3. / 2.;
+    let image_width = 1200;
     let image_height = (image_width as f64 / aspect_ratio) as i32;
-    let samples_per_pixel = 50;
+    let samples_per_pixel = 500;
     let mut img: RgbImage = ImageBuffer::new(image_width, image_height as u32);
-    let max_depth = 20;
+    let max_depth = 50;
 
     // World
 
-    let mut world = HittableList::new_empty();
-
-    let material_ground = Arc::new(Lambertian {
-        albedo: Colour::new(0.8, 0.8, 0.),
-    });
-    let material_centre = Arc::new(Lambertian {
-        albedo: Colour::new(0.1, 0.2, 0.5),
-    });
-    let material_left = Arc::new(Dielectric { ir: 1.5 });
-    let material_right = Arc::new(Metal {
-        albedo: Colour::new(0.8, 0.6, 0.2),
-        fuzz: 0.,
-    });
-
-    world.add(Arc::new(Sphere {
-        centre: Point3::new(0., -100.5, -1.),
-        radius: 100.,
-        mat: material_ground,
-    }));
-    world.add(Arc::new(Sphere {
-        centre: Point3::new(0., 0., -1.),
-        radius: 0.5,
-        mat: material_centre,
-    }));
-    world.add(Arc::new(Sphere {
-        centre: Point3::new(-1., 0., -1.),
-        radius: 0.5,
-        mat: material_left.clone(),
-    }));
-    world.add(Arc::new(Sphere {
-        centre: Point3::new(-1., 0., -1.),
-        radius: -0.4,
-        mat: material_left.clone(),
-    }));
-    world.add(Arc::new(Sphere {
-        centre: Point3::new(1., 0., -1.),
-        radius: 0.5,
-        mat: material_right,
-    }));
-    let world = world; // unmut
+    println!("Generating random scene...");
+    let world = random_scene();
+    println!("Scene generation complete! Rendering...");
 
     // Camera
-    let lookfrom = Point3::new(3., 3., 2.);
-    let lookat = Point3::new(0., 0., -1.);
+    let lookfrom = Point3::new(13., 2., 3.);
+    let lookat = Point3::new(0., 0., 0.);
 
     let cam = Camera::new(
         lookfrom,
         lookat,
-        Point3::new(0., 1., 0.),    // vup
-        20.,                        // vfov
+        Point3::new(0., 1., 0.), // vup
+        20.,                     // vfov
         aspect_ratio,
-        2.,                         // aperture
-        (lookfrom - lookat).norm(), // focus_dist
+        0.1,                         // aperture
+        10., // focus_dist
     );
 
     // Show the scene as it's rendered in real time

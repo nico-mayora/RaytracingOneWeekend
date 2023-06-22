@@ -19,6 +19,7 @@ pub fn random_vec3() -> Vec3 {
 
 pub fn random_vec3_range(min: f64, max: f64) -> Vec3 {
     let mut rng = thread_rng();
+
     Vec3::new(
         rng.gen_range(min..max),
         rng.gen_range(min..max),
