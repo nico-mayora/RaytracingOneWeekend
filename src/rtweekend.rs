@@ -32,20 +32,18 @@ pub fn rand_in_unit_disk() -> Vec3 {
         let mut rng = rand::thread_rng();
 
         let p = Vec3::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0), 0.0);
-        if p.norm_squared() >= 1. {
-            continue;
+        if p.norm_squared() < 1. {
+            return p;
         }
-        return p;
     }
 }
 
 pub fn rand_in_unit_sphere() -> Vec3 {
     loop {
-        let p = random_vec3();
-        if p.norm_squared() >= 1. {
-            continue;
+        let p = random_vec3_range(-1., 1.);
+        if p.norm_squared() < 1. {
+            return p;
         }
-        return p;
     }
 }
 

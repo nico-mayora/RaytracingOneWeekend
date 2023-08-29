@@ -10,7 +10,7 @@ pub trait Vec3RTExt {
 
 impl Vec3RTExt for Vec3 {
     fn near_zero(&self) -> bool {
-        (self[0] < EPS) && (self[1] < EPS) && (self[2] < EPS)
+        (self[0].abs() < EPS) && (self[1].abs() < EPS) && (self[2].abs() < EPS)
     }
 
     fn mul(&self, x: &Self) -> Self {

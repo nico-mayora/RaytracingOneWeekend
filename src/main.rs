@@ -49,7 +49,7 @@ fn random_scene() -> HittableList {
                     Arc::new(Lambertian { albedo })
                 } else if choose_mat < 0.92 {
                     // metal
-                    let albedo = random_vec3_range(0., 1.);
+                    let albedo = random_vec3();
                     let fuzz = rand::thread_rng().gen_range(0.0..0.5);
                     Arc::new(Metal { albedo, fuzz })
                 } else {
@@ -102,6 +102,7 @@ fn ray_colour(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
         return Colour::new(0., 0., 0.);
     }
 
+    // Sky
     let unit_direction = r.direction.normalize();
     let t = 0.5 * (unit_direction.y + 1.);
     (1. - t) * Vec3::new(1., 1., 1.) + t * Vec3::new(0.5, 0.7, 1.)
