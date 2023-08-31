@@ -7,4 +7,4 @@ pub mod ray;
 pub mod rtweekend;
 pub mod sphere;
 pub mod vec3rtext;
-pub mod viewport;
+pub mod raytracer;

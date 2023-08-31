@@ -1,203 +1,186 @@
-use raytracing::camera::*;
+// Implement ""eventually"" the logic for handling events and the window properly :)
+// Just tried. It is *not* trivial to do so.
 
-use raytracing::colour::*;
-use raytracing::hittable::*;
-use raytracing::hittable_list::*;
-use raytracing::material::*;
-use raytracing::ray::*;
-use raytracing::rtweekend::*;
-use raytracing::sphere::*;
-use raytracing::vec3rtext::*;
-use raytracing::viewport::*;
-
-use winit::event_loop::EventLoop;
-use chrono::prelude::*;
-use image::{ImageBuffer, RgbImage};
-use indicatif::{ProgressBar, ProgressStyle};
-use rand::*;
-use rayon::prelude::*;
+use raytracing::rtweekend::Colour;
+use raytracing::raytracer::*;
+use num::clamp;
+use pixels::{Pixels, SurfaceTexture};
+use std::sync::mpsc::{Receiver, TryRecvError};
+use winit::{
+    dpi::LogicalSize,
+    event::{Event, VirtualKeyCode},
+    event_loop::{ControlFlow, EventLoop},
+    window::{Window, WindowBuilder},
+};
+use winit_input_helper::WinitInputHelper;
 use std::sync::mpsc;
-use std::sync::Arc;
 use std::thread;
 
-fn random_scene() -> HittableList {
-    let mut world = HittableList::new_empty();
+const PIXEL_BATCH_SIZE: usize = 10_000;
+// const WINDOW_SCALE: f64 = 0.1;
 
-    let ground_material = Arc::new(Lambertian {
-        albedo: Colour::new(0.5, 0.5, 0.5),
-    });
-
-    world.add(Arc::new(Sphere {
-        centre: Point3::new(0., -1000., 0.),
-        radius: 1000.,
-        mat: ground_material,
-    }));
-
-    for a in -11..11 {
-        for b in -11..11 {
-            let choose_mat = rand::random::<f64>();
-
-            let centre = Point3::new(
-                a as f64 + rand::random::<f64>() * 0.9,
-                0.2,
-                b as f64 + rand::random::<f64>() * 0.9,
-            );
-
-            if (centre - Point3::new(4., 0.2, 0.)).norm() > 0.9 {
-                let sphere_material: Arc<dyn Material> = if choose_mat < 0.75 {
-                    // diffuse
-                    let albedo = random_vec3().mul(&random_vec3());
-                    Arc::new(Lambertian { albedo })
-                } else if choose_mat < 0.92 {
-                    // metal
-                    let albedo = random_vec3();
-                    let fuzz = rand::thread_rng().gen_range(0.0..0.5);
-                    Arc::new(Metal { albedo, fuzz })
-                } else {
-                    // glass
-                    Arc::new(Dielectric { ir: 1.5 })
-                };
-
-                world.add(Arc::new(Sphere {
-                    centre,
-                    radius: 0.2,
-                    mat: sphere_material,
-                }));
-            }
-        }
-    }
-
-    let mat1 = Arc::new(Dielectric { ir: 1.5 });
-    world.add(Arc::new(Sphere {
-        centre: Point3::new(0., 1., 0.),
-        radius: 1.,
-        mat: mat1,
-    }));
-
-    let mat2 = Arc::new(Lambertian { albedo: Colour::new(0.4, 0.2, 0.1) });
-    world.add(Arc::new(Sphere {
-        centre: Point3::new(-4., 1., 0.),
-        radius: 1.,
-        mat: mat2,
-    }));
-
-    let mat3 = Arc::new(Metal { albedo: Colour::new(0.7, 0.6, 0.5), fuzz: 0. });
-    world.add(Arc::new(Sphere {
-        centre: Point3::new(4., 1., 0.),
-        radius: 1.,
-        mat: mat3,
-    }));
-
-    world
-}
-
-fn ray_colour(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
-    if depth <= 0 {
-        return Colour::new(0., 0., 0.);
-    }
-
-    if let Some(rec) = world.hit(r, 0.001, INFTY) {
-        if let Some((attenuation, scattered)) = rec.mat.scatter(r, &rec) {
-            return attenuation.mul(&ray_colour(&scattered, world, depth - 1));
-        }
-        return Colour::new(0., 0., 0.);
-    }
-
-    // Sky
-    let unit_direction = r.direction.normalize();
-    let t = 0.5 * (unit_direction.y + 1.);
-    (1. - t) * Vec3::new(1., 1., 1.) + t * Vec3::new(0.5, 0.7, 1.)
+pub struct ViewportData {
+    window: Window,
+    pixels: Pixels,
+    event_loop: EventLoop<()>,
+    input: WinitInputHelper,
 }
 
 fn main() {
-    // Image
-
-    let aspect_ratio = 3. / 2.;
-    let image_width = 1200;
-    let image_height = (image_width as f64 / aspect_ratio) as i32;
-    let samples_per_pixel = 300;
-    let mut img: RgbImage = ImageBuffer::new(image_width, image_height as u32);
-    let max_depth = 50;
-
-    // World
-
-    println!("Generating random scene...");
-    let world = random_scene();
-    println!("Scene generation complete! Rendering...");
-
-    // Camera
-    let lookfrom = Point3::new(13., 2., 3.);
-    let lookat = Point3::new(0., 0., 0.);
-
-    let cam = Camera::new(
-        lookfrom,
-        lookat,
-        Point3::new(0., 1., 0.), // vup
-        20.,                     // vfov
-        aspect_ratio,
-        0.1,                         // aperture
-        10., // focus_dist
-    );
-
-    // Show the scene as it's rendered in real time
     let (sender, receiver) = mpsc::sync_channel::<ColourPosition>(10000000);
-    let viewport_thread_handle = thread::spawn(move || show_rendered_scene(image_width, image_height as u32, samples_per_pixel, receiver));
+    let raytracer_handle = thread::spawn(move || render(receiver));
+}
 
-    // Progress bar initialisation
-    let pb = ProgressBar::new(image_height as u64);
-    pb.set_style(
-        ProgressStyle::with_template(
-            "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {percent}% {eta} remaining",
-        )
-        .unwrap(),
-    );
+fn to_drawn_colour(pixel_colour: Colour, samples_per_pixel: i32) -> [u8; 4] {
+    let mut r = pixel_colour[0];
+    let mut g = pixel_colour[1];
+    let mut b = pixel_colour[2];
 
-    // Render (every pixel is rendered in parallel thanks to Rayon)
-    let colour_matrix: Vec<Vec<Colour>> = (0..image_height)
-        .into_par_iter()
-        .map(|j| {
-            let row: Vec<Vec3> = (0..image_width)
-                .into_par_iter()
-                .map(|i| {
-                    let mut pixel_colour = Colour::new(0., 0., 0.);
+    let scale = 1. / samples_per_pixel as f64;
+    r = f64::sqrt(r * scale);
+    g = f64::sqrt(g * scale);
+    b = f64::sqrt(b * scale);
 
-                    for _ in 0..samples_per_pixel {
-                        let u = (i as f64 + rand::random::<f64>()) / ((image_width - 1) as f64);
-                        let v = (j as f64 + rand::random::<f64>()) / ((image_height - 1) as f64);
+    [
+        (256. * clamp(r, 0., 0.999)) as u8,
+        (256. * clamp(g, 0., 0.999)) as u8,
+        (256. * clamp(b, 0., 0.999)) as u8,
+        0xFF,
+    ]
+}
 
-                        let r = cam.get_ray(u, v);
-                        pixel_colour += ray_colour(&r, &world, max_depth);
+fn plot_pixel(
+    buffer: &mut [u8],
+    x: usize,
+    y: usize,
+    colour: &[u8],
+    window_width: u32,
+    window_height: u32,
+) {
+    let y = (window_height - 1 - y as u32) as usize; // unflip
+    let i = (x + y * window_width as usize) * 4;
+
+    buffer[i..i + 4].copy_from_slice(colour);
+}
+
+fn show_rendered_scene(
+    window_width: u32,
+    window_height: u32,
+    samples_per_pixel: i32,
+    receiver: Receiver<ColourPosition>,
+) {
+    let viewport_data = initialise_viewport(window_width, window_height);
+
+    let event_loop = viewport_data.event_loop;
+    let mut input = viewport_data.input;
+    let mut pixels = viewport_data.pixels;
+    let window = viewport_data.window;
+
+    let mut colour_buffer: Vec<ColourPosition> = Vec::new();
+    let mut channel_active = true;
+
+    event_loop.run(move |event, _, control_flow| {
+        // Draw the current frame
+        if let Event::RedrawRequested(_) = event {
+            let mut received = 0;
+            while channel_active && received < PIXEL_BATCH_SIZE {
+                dbg!("jamon");
+                match receiver.try_recv() {
+                    Ok(colour_pos) => {
+                        colour_buffer.push(colour_pos);
+                        received += 1;
                     }
-                    match sender.send(ColourPosition { colour: pixel_colour, point: (i, j as u32), }) {
-                        Ok(smart) => println!("smart: {:?}", smart),
-                        Err(bogus) => {/* dbg!(bogus.to_string()); */},
+                    Err(TryRecvError::Empty) => {
+                        draw(&mut pixels, &colour_buffer, samples_per_pixel, window_height, window_width);
+                        colour_buffer.clear();
+                        break;
                     }
-                    pixel_colour
-                })
-                .collect();
-            pb.inc(1);
-            row
-        })
-        .collect();
-
-    pb.finish();
-
-    for (j, row) in colour_matrix.iter().enumerate() {
-        for (i, pixel) in row.iter().enumerate() {
-            write_to_img(
-                &mut img,
-                *pixel,
-                samples_per_pixel,
-                i as i32,
-                image_height - 1 - j as i32, // png is flipped
-            );
+                    Err(TryRecvError::Disconnected) => {
+                        channel_active = false;
+                    }
+                }
+            }
         }
+
+        // Handle input events
+        if input.update(&event) {
+            // Close events
+            if input.key_pressed(VirtualKeyCode::Escape) || input.close_requested() {
+                *control_flow = ControlFlow::Exit;
+                return;
+            }
+
+            // Resize the window
+            if let Some(size) = input.window_resized() {
+                if let Err(_) = pixels.resize_surface(size.width, size.height) {
+                    *control_flow = ControlFlow::Exit;
+                    return;
+                }
+            }
+
+            window.request_redraw();
+        }
+    });
+}
+
+fn initialise_viewport(
+    window_width: u32,
+    window_height: u32,
+) -> ViewportData {
+    let event_loop = EventLoop::new();
+
+    let input = WinitInputHelper::new();
+
+    let window = {
+        let size = LogicalSize::new(window_width as f64, window_height as f64);
+        WindowBuilder::new()
+            .with_title("Render Result")
+            .with_inner_size(size)
+            .with_min_inner_size(size)
+            .build(&event_loop)
+            .unwrap()
+    };
+
+    let pixels = {
+        let window_size = window.inner_size();
+        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
+        Pixels::new(window_width, window_height, surface_texture)
+    }
+    .unwrap();
+
+    ViewportData {
+        pixels,
+        window,
+        event_loop,
+        input,
+    }
+}
+
+fn draw(
+    pixels: &mut Pixels,
+    colour_buffer: &Vec<ColourPosition>,
+    samples_per_pixel: i32,
+    window_width: u32,
+    window_height: u32,
+) {
+    let mut frame = pixels.frame_mut();
+
+    for cp in colour_buffer {
+        let transformed_colour = to_drawn_colour(cp.colour, samples_per_pixel);
+        plot_pixel(
+            &mut frame,
+            cp.point.0 as usize,
+            cp.point.1 as usize,
+            &transformed_colour,
+            window_width,
+            window_height,
+            );
     }
 
-    drop(sender);
-    let path = format!("out/{}.png", Utc::now().to_string());
-    img.save(path).unwrap();
 
-    eprintln!("\nDone!\n");
-    viewport_thread_handle.join().unwrap();
+    println!("before");
+    pixels.render().unwrap();
+    println!("after");
 }
+
+
