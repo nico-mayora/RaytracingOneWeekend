@@ -1,11 +1,7 @@
-// Implement ""eventually"" the logic for handling events and the window properly :)
-// Just tried. It is *not* trivial to do so.
-
 use raytracing::rtweekend::Colour;
 use raytracing::raytracer::*;
 use num::clamp;
 use pixels::{Pixels, SurfaceTexture};
-use std::sync::mpsc::{Receiver, TryRecvError};
 use winit::{
     dpi::LogicalSize,
     event::{Event, VirtualKeyCode},
@@ -13,22 +9,15 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 use winit_input_helper::WinitInputHelper;
-use std::sync::mpsc;
+use crossbeam::channel::*;
 use std::thread;
-
-const PIXEL_BATCH_SIZE: usize = 10_000;
-// const WINDOW_SCALE: f64 = 0.1;
+use config::Config;
 
 pub struct ViewportData {
     window: Window,
     pixels: Pixels,
     event_loop: EventLoop<()>,
     input: WinitInputHelper,
-}
-
-fn main() {
-    let (sender, receiver) = mpsc::sync_channel::<ColourPosition>(10000000);
-    let raytracer_handle = thread::spawn(move || render(receiver));
 }
 
 fn to_drawn_colour(pixel_colour: Colour, samples_per_pixel: i32) -> [u8; 4] {
@@ -67,9 +56,11 @@ fn show_rendered_scene(
     window_width: u32,
     window_height: u32,
     samples_per_pixel: i32,
+    pixel_batch_size: usize,
+    win_scale: f64,
     receiver: Receiver<ColourPosition>,
 ) {
-    let viewport_data = initialise_viewport(window_width, window_height);
+    let viewport_data = initialise_viewport(window_width, window_height, win_scale);
 
     let event_loop = viewport_data.event_loop;
     let mut input = viewport_data.input;
@@ -82,25 +73,26 @@ fn show_rendered_scene(
     event_loop.run(move |event, _, control_flow| {
         // Draw the current frame
         if let Event::RedrawRequested(_) = event {
-            let mut received = 0;
-            while channel_active && received < PIXEL_BATCH_SIZE {
-                dbg!("jamon");
+            while channel_active {
                 match receiver.try_recv() {
-                    Ok(colour_pos) => {
+                    Ok(colour_pos) if colour_buffer.len() < pixel_batch_size => {
                         colour_buffer.push(colour_pos);
-                        received += 1;
                     }
                     Err(TryRecvError::Empty) => {
-                        draw(&mut pixels, &colour_buffer, samples_per_pixel, window_height, window_width);
-                        colour_buffer.clear();
                         break;
                     }
                     Err(TryRecvError::Disconnected) => {
                         channel_active = false;
                     }
+                    _ => {
+                        break;
+                    }
                 }
             }
         }
+
+        draw(&mut pixels, &colour_buffer, samples_per_pixel, window_height, window_width);
+        colour_buffer.clear();
 
         // Handle input events
         if input.update(&event) {
@@ -110,22 +102,29 @@ fn show_rendered_scene(
                 return;
             }
 
+            if input.key_pressed(VirtualKeyCode::Escape) || input.close_requested() {
+                *control_flow = ControlFlow::Exit;
+                return;
+            }
+
             // Resize the window
             if let Some(size) = input.window_resized() {
+                println!("Resizing to {:?}", size);
                 if let Err(_) = pixels.resize_surface(size.width, size.height) {
                     *control_flow = ControlFlow::Exit;
                     return;
                 }
             }
 
-            window.request_redraw();
         }
+        window.request_redraw();
     });
 }
 
 fn initialise_viewport(
     window_width: u32,
     window_height: u32,
+    window_scale: f64,
 ) -> ViewportData {
     let event_loop = EventLoop::new();
 
@@ -133,10 +132,11 @@ fn initialise_viewport(
 
     let window = {
         let size = LogicalSize::new(window_width as f64, window_height as f64);
+        let scaled_size = LogicalSize::new(window_scale * window_width as f64, window_scale * window_height as f64);
         WindowBuilder::new()
             .with_title("Render Result")
             .with_inner_size(size)
-            .with_min_inner_size(size)
+            .with_min_inner_size(scaled_size)
             .build(&event_loop)
             .unwrap()
     };
@@ -160,8 +160,8 @@ fn draw(
     pixels: &mut Pixels,
     colour_buffer: &Vec<ColourPosition>,
     samples_per_pixel: i32,
-    window_width: u32,
     window_height: u32,
+    window_width: u32,
 ) {
     let mut frame = pixels.frame_mut();
 
@@ -177,10 +177,33 @@ fn draw(
             );
     }
 
-
-    println!("before");
     pixels.render().unwrap();
-    println!("after");
 }
 
+fn get_settings() -> Config {
+    Config::builder()
+        .add_source(config::File::with_name("config.toml"))
+        .build()
+        .unwrap()
+}
 
+fn main() {
+    let settings = get_settings();
+    let rt_settings = settings.clone();
+
+    let (sender, receiver) = unbounded::<ColourPosition>();
+    let _raytracer_handle = thread::spawn(move || render(sender, rt_settings));
+
+    let win_width = settings.get::<u32>("image.width").unwrap();
+    let win_height = {
+        let aspect_ratio = settings.get_float("camera.aspect_ratio").unwrap();
+        let wh = (win_width as f64 / aspect_ratio) as u32;
+        dbg!(wh, win_width);
+        wh
+    };
+    let samples_per_pixel = settings.get::<i32>("image.samples_per_pixel").unwrap();
+    let pixel_batch_size = settings.get::<usize>("viewport.pixel_batch_size").unwrap();
+    let window_scale = settings.get::<f64>("viewport.window_scale").unwrap();
+
+    show_rendered_scene(win_width, win_height, samples_per_pixel, pixel_batch_size, window_scale, receiver);
+}

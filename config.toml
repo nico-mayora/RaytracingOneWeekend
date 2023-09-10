@@ -1,0 +1,17 @@
+[camera]
+lookfrom = [ 13.0, 2.0, 3.0 ]
+lookat = [ 0.0, 0.0, 0.0 ]
+vup = [ 0.0, 1.0, 0.0 ]
+vfov = 20.0
+aspect_ratio = 1.5
+aperture = 0.1
+focus_distance = 10.0
+
+[image]
+samples_per_pixel = 10
+max_depth = 10
+width = 200
+
+[viewport]
+pixel_batch_size = 500_000
+window_scale = 4

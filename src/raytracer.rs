@@ -14,8 +14,9 @@ use image::{ImageBuffer, RgbImage};
 use indicatif::{ProgressBar, ProgressStyle};
 use rand::*;
 use rayon::prelude::*;
-use std::sync::mpsc;
+use crossbeam::channel::*;
 use std::sync::Arc;
+use config::Config;
 
 #[derive(Debug)]
 pub struct ColourPosition {
@@ -99,7 +100,7 @@ fn ray_colour(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
         return Colour::new(0., 0., 0.);
     }
 
-    if let Some(rec) = world.hit(r, 0.001, INFTY) {
+    if let Some(rec) = world.hit(r, 0.001, f64::INFINITY) {
         if let Some((attenuation, scattered)) = rec.mat.scatter(r, &rec) {
             return attenuation.mul(&ray_colour(&scattered, world, depth - 1));
         }
@@ -112,15 +113,17 @@ fn ray_colour(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
     (1. - t) * Vec3::new(1., 1., 1.) + t * Vec3::new(0.5, 0.7, 1.)
 }
 
-fn render(sender: mpsc::Sender<ColourPosition>) {
+pub fn render(sender: Sender<ColourPosition>, settings: Config) {
     // Image
 
-    let aspect_ratio = 3. / 2.;
-    let image_width = 400;
+    let aspect_ratio = settings.get("camera.aspect_ratio").unwrap();
+    let image_width = settings.get("image.width").unwrap();
     let image_height = (image_width as f64 / aspect_ratio) as i32;
-    let samples_per_pixel = 50;
+    let samples_per_pixel = settings.get("image.samples_per_pixel").unwrap();
     let mut img: RgbImage = ImageBuffer::new(image_width, image_height as u32);
-    let max_depth = 20;
+    let max_depth = settings.get("image.max_depth").unwrap();
+
+    dbg!(image_height, image_width);
 
     // World
 
@@ -129,17 +132,29 @@ fn render(sender: mpsc::Sender<ColourPosition>) {
     println!("Scene generation complete! Rendering...");
 
     // Camera
-    let lookfrom = Point3::new(13., 2., 3.);
-    let lookat = Point3::new(0., 0., 0.);
+    let lookfrom = {
+        let lf = settings.get::<[f64; 3]>("camera.lookfrom").unwrap();
+        Point3::new(lf[0], lf[1], lf[2])
+    };
+
+    let lookat = {
+        let la = settings.get::<[f64; 3]>("camera.lookat").unwrap();
+        Point3::new(la[0], la[1], la[2])
+    };
+
+    let vup = {
+        let vup = settings.get::<[f64; 3]>("camera.vup").unwrap();
+        Vec3::new(vup[0], vup[1], vup[2])
+    };
 
     let cam = Camera::new(
         lookfrom,
         lookat,
-        Point3::new(0., 1., 0.), // vup
-        20.,                     // vfov
+        vup,
+        settings.get_float("camera.vfov").unwrap(),
         aspect_ratio,
-        0.1,                         // aperture
-        10., // focus_dist
+        settings.get_float("camera.aperture").unwrap(),
+        settings.get_float("camera.focus_distance").unwrap(),
     );
 
     // Progress bar initialisation
@@ -169,7 +184,10 @@ fn render(sender: mpsc::Sender<ColourPosition>) {
                         pixel_colour += ray_colour(&r, &world, max_depth);
                     }
                     // It's okay to panic if this fails
-                    sender.send(ColourPosition { colour: pixel_colour, point: (i, j as u32), }).unwrap();
+                    match sender.send(ColourPosition { colour: pixel_colour, point: (i, j as u32), }) {
+                        Ok(_) => (),
+                        Err(e) => {dbg!(e.to_string()); ()},
+                    };
                     pixel_colour
                 })
                 .collect();
