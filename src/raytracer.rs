@@ -113,7 +113,7 @@ fn ray_colour(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
     (1. - t) * Vec3::new(1., 1., 1.) + t * Vec3::new(0.5, 0.7, 1.)
 }
 
-pub fn render(sender: Sender<ColourPosition>, settings: Config) {
+pub fn render(sender: Sender<ColourPosition>, sync_snd: Sender<()>, settings: Config) {
     // Image
 
     let aspect_ratio = settings.get("camera.aspect_ratio").unwrap();
@@ -196,7 +196,10 @@ pub fn render(sender: Sender<ColourPosition>, settings: Config) {
         })
         .collect();
 
+    sync_snd.send(()).unwrap();
     pb.finish();
+    eprintln!("\nDone rendering!\nGenerating image...\n");
+
 
     for (j, row) in colour_matrix.iter().enumerate() {
         for (i, pixel) in row.iter().enumerate() {
@@ -210,10 +213,10 @@ pub fn render(sender: Sender<ColourPosition>, settings: Config) {
         }
     }
 
-    drop(sender);
+    // drop(sender);
     let path = format!("out/{}.png", Utc::now().to_string());
     img.save(path).unwrap();
 
-    eprintln!("\nDone!\n");
+    eprintln!("\nImage saved!\n");
     // viewport_thread_handle.join().unwrap();
 }

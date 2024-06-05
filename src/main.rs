@@ -10,6 +10,7 @@ use winit::{
 };
 use winit_input_helper::WinitInputHelper;
 use crossbeam::channel::*;
+// use core::sync;
 use std::thread;
 use config::Config;
 
@@ -59,6 +60,7 @@ fn show_rendered_scene(
     pixel_batch_size: usize,
     win_scale: f64,
     receiver: Receiver<ColourPosition>,
+    sync_recv: Receiver<()>,
 ) {
     let viewport_data = initialise_viewport(window_width, window_height, win_scale);
 
@@ -74,19 +76,22 @@ fn show_rendered_scene(
         // Draw the current frame
         if let Event::RedrawRequested(_) = event {
             while channel_active {
+                match sync_recv.try_recv() {
+                    Ok(()) => {
+                        channel_active = false;
+                        while let Ok(cp) = receiver.try_recv() {
+                            colour_buffer.push(cp);
+                        }
+                        break;
+                    }
+                    _ => {}
+                }
+
                 match receiver.try_recv() {
                     Ok(colour_pos) if colour_buffer.len() < pixel_batch_size => {
                         colour_buffer.push(colour_pos);
                     }
-                    Err(TryRecvError::Empty) => {
-                        break;
-                    }
-                    Err(TryRecvError::Disconnected) => {
-                        channel_active = false;
-                    }
-                    _ => {
-                        break;
-                    }
+                    _ => { break; }
                 }
             }
         }
@@ -192,7 +197,8 @@ fn main() {
     let rt_settings = settings.clone();
 
     let (sender, receiver) = unbounded::<ColourPosition>();
-    let _raytracer_handle = thread::spawn(move || render(sender, rt_settings));
+    let (sync_snd, sync_recv) = unbounded::<()>();
+    let _raytracer_handle = thread::spawn(move || render(sender, sync_snd, rt_settings));
 
     let win_width = settings.get::<u32>("image.width").unwrap();
     let win_height = {
@@ -205,5 +211,5 @@ fn main() {
     let pixel_batch_size = settings.get::<usize>("viewport.pixel_batch_size").unwrap();
     let window_scale = settings.get::<f64>("viewport.window_scale").unwrap();
 
-    show_rendered_scene(win_width, win_height, samples_per_pixel, pixel_batch_size, window_scale, receiver);
+    show_rendered_scene(win_width, win_height, samples_per_pixel, pixel_batch_size, window_scale, receiver, sync_recv);
 }
