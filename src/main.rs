@@ -73,26 +73,24 @@ fn show_rendered_scene(
     let mut channel_active = true;
 
     event_loop.run(move |event, _, control_flow| {
-        // Draw the current frame
-        if let Event::RedrawRequested(_) = event {
-            while channel_active {
-                match sync_recv.try_recv() {
-                    Ok(()) => {
-                        channel_active = false;
-                        while let Ok(cp) = receiver.try_recv() {
-                            colour_buffer.push(cp);
-                        }
-                        break;
+        while channel_active && colour_buffer.len() < pixel_batch_size {
+            // rendering done. reset channel_active and drain receiver into colour_buffer.
+            match sync_recv.try_recv() {
+                Ok(()) => {
+                    channel_active = false;
+                    while let Ok(cp) = receiver.try_recv() {
+                        colour_buffer.push(cp);
                     }
-                    _ => {}
+                    break;
                 }
+                _ => {}
+            }
 
-                match receiver.try_recv() {
-                    Ok(colour_pos) if colour_buffer.len() < pixel_batch_size => {
-                        colour_buffer.push(colour_pos);
-                    }
-                    _ => { break; }
+            match receiver.try_recv() {
+                Ok(colour_pos) => {
+                    colour_buffer.push(colour_pos);
                 }
+                _ => { break; }
             }
         }
 
@@ -114,7 +112,6 @@ fn show_rendered_scene(
 
             // Resize the window
             if let Some(size) = input.window_resized() {
-                println!("Resizing to {:?}", size);
                 if let Err(_) = pixels.resize_surface(size.width, size.height) {
                     *control_flow = ControlFlow::Exit;
                     return;

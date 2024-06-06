@@ -10,13 +10,13 @@ use super::sphere::*;
 use super::vec3rtext::*;
 
 use chrono::prelude::*;
+use config::Config;
+use crossbeam::channel::*;
 use image::{ImageBuffer, RgbImage};
 use indicatif::{ProgressBar, ProgressStyle};
 use rand::*;
 use rayon::prelude::*;
-use crossbeam::channel::*;
 use std::sync::Arc;
-use config::Config;
 
 #[derive(Debug)]
 pub struct ColourPosition {
@@ -31,11 +31,11 @@ fn random_scene() -> HittableList {
         albedo: Colour::new(0.5, 0.5, 0.5),
     });
 
-    world.add(Arc::new(Sphere {
-        centre: Point3::new(0., -1000., 0.),
-        radius: 1000.,
-        mat: ground_material,
-    }));
+    world.add(Arc::new(Sphere::new_stationary(
+        Point3::new(0., -1000., 0.),
+        1000.,
+        ground_material,
+    )));
 
     for a in -11..11 {
         for b in -11..11 {
@@ -48,8 +48,11 @@ fn random_scene() -> HittableList {
             );
 
             if (centre - Point3::new(4., 0.2, 0.)).norm() > 0.9 {
+                let mut displacement = Vec3::zeros();
                 let sphere_material: Arc<dyn Material> = if choose_mat < 0.75 {
                     // diffuse
+                    displacement = centre + Vec3::new(0., rand::thread_rng().gen_range(0.0..0.5), 0.);
+                    dbg!(displacement);
                     let albedo = random_vec3().mul(&random_vec3());
                     Arc::new(Lambertian { albedo })
                 } else if choose_mat < 0.92 {
@@ -63,9 +66,10 @@ fn random_scene() -> HittableList {
                 };
 
                 world.add(Arc::new(Sphere {
-                    centre,
+                    centre0: centre,
                     radius: 0.2,
                     mat: sphere_material,
+                    displacement,
                 }));
             }
         }
@@ -73,21 +77,29 @@ fn random_scene() -> HittableList {
 
     let mat1 = Arc::new(Dielectric { ir: 1.5 });
     world.add(Arc::new(Sphere {
-        centre: Point3::new(0., 1., 0.),
+        centre0: Point3::new(0., 1., 0.),
+        displacement: Vec3::zeros(),
         radius: 1.,
         mat: mat1,
     }));
 
-    let mat2 = Arc::new(Lambertian { albedo: Colour::new(0.4, 0.2, 0.1) });
+    let mat2 = Arc::new(Lambertian {
+        albedo: Colour::new(0.4, 0.2, 0.1),
+    });
     world.add(Arc::new(Sphere {
-        centre: Point3::new(-4., 1., 0.),
+        centre0: Point3::new(-4., 1., 0.),
+        displacement: Vec3::zeros(),
         radius: 1.,
         mat: mat2,
     }));
 
-    let mat3 = Arc::new(Metal { albedo: Colour::new(0.7, 0.6, 0.5), fuzz: 0. });
+    let mat3 = Arc::new(Metal {
+        albedo: Colour::new(0.7, 0.6, 0.5),
+        fuzz: 0.,
+    });
     world.add(Arc::new(Sphere {
-        centre: Point3::new(4., 1., 0.),
+        centre0: Point3::new(4., 1., 0.),
+        displacement: Vec3::zeros(),
         radius: 1.,
         mat: mat3,
     }));
@@ -184,9 +196,15 @@ pub fn render(sender: Sender<ColourPosition>, sync_snd: Sender<()>, settings: Co
                         pixel_colour += ray_colour(&r, &world, max_depth);
                     }
                     // It's okay to panic if this fails
-                    match sender.send(ColourPosition { colour: pixel_colour, point: (i, j as u32), }) {
+                    match sender.send(ColourPosition {
+                        colour: pixel_colour,
+                        point: (i, j as u32),
+                    }) {
                         Ok(_) => (),
-                        Err(e) => {dbg!(e.to_string()); ()},
+                        Err(e) => {
+                            dbg!(e.to_string());
+                            ()
+                        }
                     };
                     pixel_colour
                 })
@@ -200,7 +218,6 @@ pub fn render(sender: Sender<ColourPosition>, sync_snd: Sender<()>, settings: Co
     pb.finish();
     eprintln!("\nDone rendering!\nGenerating image...\n");
 
-
     for (j, row) in colour_matrix.iter().enumerate() {
         for (i, pixel) in row.iter().enumerate() {
             write_to_img(
@@ -213,7 +230,7 @@ pub fn render(sender: Sender<ColourPosition>, sync_snd: Sender<()>, settings: Co
         }
     }
 
-    // drop(sender);
+    drop(sender);
     let path = format!("out/{}.png", Utc::now().to_string());
     img.save(path).unwrap();
 

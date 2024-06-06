@@ -1,3 +1,5 @@
+use rand::random;
+
 use super::ray::*;
 use super::rtweekend::*;
 
@@ -55,6 +57,7 @@ impl Camera {
         Ray {
             origin: self.origin + offset,
             direction: self.lower_left_corner + s * self.horizontal + t * self.vertical - self.origin - offset,
+            time: random(),
         }
     }
 }

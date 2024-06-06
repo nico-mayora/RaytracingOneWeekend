@@ -8,10 +8,10 @@ aperture = 0.1
 focus_distance = 10.0
 
 [image]
-samples_per_pixel = 10
-max_depth = 10
-width = 200
+samples_per_pixel = 100
+max_depth = 15
+width = 800
 
 [viewport]
-pixel_batch_size = 1
-window_scale = 4
+pixel_batch_size = 200_000
+window_scale = 1

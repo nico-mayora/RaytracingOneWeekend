@@ -4,7 +4,7 @@ use super::rtweekend::*;
 use super::vec3rtext::*;
 
 pub trait Material {
-    // None means the ray was abosorbed
+    // Returning None means the ray was abosorbed
     fn scatter(&self, r_in: &Ray, rec: &HitRecord) -> Option<(Colour, Ray)>;
 }
 
@@ -13,7 +13,7 @@ pub struct Lambertian {
 }
 
 impl Material for Lambertian {
-    fn scatter(&self, _r_in: &Ray, rec: &HitRecord) -> Option<(Colour, Ray)> {
+    fn scatter(&self, r_in: &Ray, rec: &HitRecord) -> Option<(Colour, Ray)> {
         let mut scatter_direction = rec.normal + rand_unit_vector();
 
         if scatter_direction.near_zero() {
@@ -23,6 +23,7 @@ impl Material for Lambertian {
         let scattered = Ray {
             origin: rec.p,
             direction: scatter_direction,
+            time: r_in.time,
         };
         Some((self.albedo, scattered))
     }
@@ -40,6 +41,7 @@ impl Material for Metal {
         let scattered = Ray {
             origin: rec.p,
             direction: fuzzed,
+            time: r_in.time,
         };
 
         if scattered.direction.dot(&rec.normal) > 0. {
@@ -88,6 +90,7 @@ impl Material for Dielectric {
         let scattered = Ray {
             origin: rec.p,
             direction,
+            time: r_in.time,
         };
 
         Some((attenuation, scattered))
