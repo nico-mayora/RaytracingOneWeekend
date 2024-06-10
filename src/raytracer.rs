@@ -51,8 +51,7 @@ fn random_scene() -> HittableList {
                 let mut displacement = Vec3::zeros();
                 let sphere_material: Arc<dyn Material> = if choose_mat < 0.75 {
                     // diffuse
-                    displacement = centre + Vec3::new(0., rand::thread_rng().gen_range(0.0..0.5), 0.);
-                    dbg!(displacement);
+                    displacement = Vec3::new(0., rand::thread_rng().gen_range(0.0..0.5), 0.);
                     let albedo = random_vec3().mul(&random_vec3());
                     Arc::new(Lambertian { albedo })
                 } else if choose_mat < 0.92 {
@@ -203,7 +202,6 @@ pub fn render(sender: Sender<ColourPosition>, sync_snd: Sender<()>, settings: Co
                         Ok(_) => (),
                         Err(e) => {
                             dbg!(e.to_string());
-                            ()
                         }
                     };
                     pixel_colour
@@ -231,7 +229,7 @@ pub fn render(sender: Sender<ColourPosition>, sync_snd: Sender<()>, settings: Co
     }
 
     drop(sender);
-    let path = format!("out/{}.png", Utc::now().to_string());
+    let path = format!("out/{}.png", Utc::now());
     img.save(path).unwrap();
 
     eprintln!("\nImage saved!\n");

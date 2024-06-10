@@ -4,7 +4,7 @@ use num::clamp;
 use pixels::{Pixels, SurfaceTexture};
 use winit::{
     dpi::LogicalSize,
-    event::{Event, VirtualKeyCode},
+    event::VirtualKeyCode,
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
@@ -75,15 +75,12 @@ fn show_rendered_scene(
     event_loop.run(move |event, _, control_flow| {
         while channel_active && colour_buffer.len() < pixel_batch_size {
             // rendering done. reset channel_active and drain receiver into colour_buffer.
-            match sync_recv.try_recv() {
-                Ok(()) => {
-                    channel_active = false;
-                    while let Ok(cp) = receiver.try_recv() {
-                        colour_buffer.push(cp);
-                    }
-                    break;
+            if let Ok(()) = sync_recv.try_recv() {
+                channel_active = false;
+                while let Ok(cp) = receiver.try_recv() {
+                    colour_buffer.push(cp);
                 }
-                _ => {}
+                break;
             }
 
             match receiver.try_recv() {
@@ -112,7 +109,7 @@ fn show_rendered_scene(
 
             // Resize the window
             if let Some(size) = input.window_resized() {
-                if let Err(_) = pixels.resize_surface(size.width, size.height) {
+                if pixels.resize_surface(size.width, size.height).is_err() {
                     *control_flow = ControlFlow::Exit;
                     return;
                 }
@@ -165,12 +162,12 @@ fn draw(
     window_height: u32,
     window_width: u32,
 ) {
-    let mut frame = pixels.frame_mut();
+    let frame = pixels.frame_mut();
 
     for cp in colour_buffer {
         let transformed_colour = to_drawn_colour(cp.colour, samples_per_pixel);
         plot_pixel(
-            &mut frame,
+            frame,
             cp.point.0 as usize,
             cp.point.1 as usize,
             &transformed_colour,

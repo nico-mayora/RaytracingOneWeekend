@@ -53,8 +53,8 @@ pub fn rand_unit_vector() -> Vec3 {
 pub fn rand_in_hemisphere(normal: &Vec3) -> Vec3 {
     let in_unit_sphere = rand_in_unit_sphere();
     if in_unit_sphere.dot(normal) > 0. {
-        return in_unit_sphere;
+        in_unit_sphere
     } else {
-        return -in_unit_sphere;
+        -in_unit_sphere
     }
 }

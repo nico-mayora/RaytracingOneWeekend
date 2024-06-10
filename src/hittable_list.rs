@@ -40,7 +40,7 @@ impl Hittable for HittableList {
             }
         }
 
-        return temp_rec;
+        temp_rec
     }
 }
 

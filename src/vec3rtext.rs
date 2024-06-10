@@ -18,7 +18,7 @@ impl Vec3RTExt for Vec3 {
     }
 
     fn reflect(uv: &Self, norm: &Self) -> Self {
-        uv - 2. * uv.dot(&norm) * norm
+        uv - 2. * uv.dot(norm) * norm
     }
 
     fn refract(uv: &Self, n: &Self, etai_over_etat: f64) -> Self {

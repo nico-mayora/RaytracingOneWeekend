@@ -1,5 +1,3 @@
-use crate::material;
-
 use super::hittable::*;
 use super::material::Material;
 use super::ray::*;
@@ -63,3 +61,7 @@ impl Hittable for Sphere {
         ))
     }
 }
+
+unsafe impl Send for Sphere {}
+unsafe impl Sync for Sphere {}
+

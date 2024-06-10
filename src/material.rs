@@ -45,9 +45,9 @@ impl Material for Metal {
         };
 
         if scattered.direction.dot(&rec.normal) > 0. {
-            return Some((self.albedo, scattered));
+            Some((self.albedo, scattered))
         } else {
-            return None;
+            None
         }
     }
 }

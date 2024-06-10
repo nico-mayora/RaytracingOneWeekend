@@ -8,8 +8,8 @@ aperture = 0.1
 focus_distance = 10.0
 
 [image]
-samples_per_pixel = 100
-max_depth = 15
+samples_per_pixel = 50
+max_depth = 30
 width = 800
 
 [viewport]
