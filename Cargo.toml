@@ -15,7 +15,8 @@ image = "0.25.1"
 chrono = "0.4.38"
 indicatif = "0.17.8"
 winit = { version = "0.30.1", features = [ "default" ] }
-winit_input_helper = "0.16.0"
+# might be necessary. if so, downgrade winit to 0.29.15
+# winit_input_helper = "0.16.0"
 pixels = "0.13.0"
 crossbeam = "0.8.4"
 config = "0.14.0"

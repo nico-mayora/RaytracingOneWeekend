@@ -1,16 +1,12 @@
-use raytracing::rtweekend::Colour;
+use raytracing::{rtweekend::Colour, colour::drawn_colour};
 use raytracing::raytracer::*;
-use num::clamp;
 use pixels::{Pixels, SurfaceTexture};
 use winit::{
     dpi::LogicalSize,
-    event::VirtualKeyCode,
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
+    window::Window,
 };
-use winit_input_helper::WinitInputHelper;
 use crossbeam::channel::*;
-// use core::sync;
 use std::thread;
 use config::Config;
 
@@ -18,25 +14,6 @@ pub struct ViewportData {
     window: Window,
     pixels: Pixels,
     event_loop: EventLoop<()>,
-    input: WinitInputHelper,
-}
-
-fn to_drawn_colour(pixel_colour: Colour, samples_per_pixel: i32) -> [u8; 4] {
-    let mut r = pixel_colour[0];
-    let mut g = pixel_colour[1];
-    let mut b = pixel_colour[2];
-
-    let scale = 1. / samples_per_pixel as f64;
-    r = f64::sqrt(r * scale);
-    g = f64::sqrt(g * scale);
-    b = f64::sqrt(b * scale);
-
-    [
-        (256. * clamp(r, 0., 0.999)) as u8,
-        (256. * clamp(g, 0., 0.999)) as u8,
-        (256. * clamp(b, 0., 0.999)) as u8,
-        0xFF,
-    ]
 }
 
 fn plot_pixel(
@@ -165,7 +142,7 @@ fn draw(
     let frame = pixels.frame_mut();
 
     for cp in colour_buffer {
-        let transformed_colour = to_drawn_colour(cp.colour, samples_per_pixel);
+        let transformed_colour = drawn_colour(cp.colour, samples_per_pixel);
         plot_pixel(
             frame,
             cp.point.0 as usize,
