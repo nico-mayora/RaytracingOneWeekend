@@ -1,17 +1,15 @@
 use super::camera::*;
 
-use super::colour::*;
+use crate::util::{colour::*, rtweekend::*, vec3rtext::*};
+use crate::config::Settings;
+
 use super::hittable::*;
 use super::hittable_list::*;
 use super::material::*;
 use super::ray::*;
-use super::rtweekend::*;
 use super::sphere::*;
-use super::vec3rtext::*;
 
 use chrono::prelude::*;
-use config::Config;
-use crossbeam::channel::*;
 use image::{ImageBuffer, RgbImage};
 use indicatif::{ProgressBar, ProgressStyle};
 use rand::*;
@@ -106,8 +104,8 @@ fn random_scene() -> HittableList {
     world
 }
 
-fn ray_colour(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
-    if depth <= 0 {
+fn ray_colour(r: &Ray, world: &dyn Hittable, depth: u32) -> Colour {
+    if depth == 0 {
         return Colour::new(0., 0., 0.);
     }
 
@@ -124,17 +122,17 @@ fn ray_colour(r: &Ray, world: &dyn Hittable, depth: i32) -> Colour {
     (1. - t) * Vec3::new(1., 1., 1.) + t * Vec3::new(0.5, 0.7, 1.)
 }
 
-pub fn render(sender: Sender<ColourPosition>, sync_snd: Sender<()>, settings: Config) {
+pub fn render() {
     // Image
 
-    let aspect_ratio = settings.get("camera.aspect_ratio").unwrap();
-    let image_width = settings.get("image.width").unwrap();
-    let image_height = (image_width as f64 / aspect_ratio) as i32;
-    let samples_per_pixel = settings.get("image.samples_per_pixel").unwrap();
-    let mut img: RgbImage = ImageBuffer::new(image_width, image_height as u32);
-    let max_depth = settings.get("image.max_depth").unwrap();
+    let settings: Settings = Default::default();
 
-    dbg!(image_height, image_width);
+    let aspect_ratio = settings.aspect_ratio;
+    let image_width = settings.width;
+    let image_height = (image_width as f64 / aspect_ratio) as i32;
+    let samples_per_pixel = settings.samples_per_pixel;
+    let mut img: RgbImage = ImageBuffer::new(image_width, image_height as u32);
+    let max_depth = settings.max_depth;
 
     // World
 
@@ -143,29 +141,19 @@ pub fn render(sender: Sender<ColourPosition>, sync_snd: Sender<()>, settings: Co
     println!("Scene generation complete! Rendering...");
 
     // Camera
-    let lookfrom = {
-        let lf = settings.get::<[f64; 3]>("camera.lookfrom").unwrap();
-        Point3::new(lf[0], lf[1], lf[2])
-    };
+    let lookfrom = settings.lookfrom;
+    let lookat = settings.lookat;
 
-    let lookat = {
-        let la = settings.get::<[f64; 3]>("camera.lookat").unwrap();
-        Point3::new(la[0], la[1], la[2])
-    };
-
-    let vup = {
-        let vup = settings.get::<[f64; 3]>("camera.vup").unwrap();
-        Vec3::new(vup[0], vup[1], vup[2])
-    };
+    let vup = settings.vup;
 
     let cam = Camera::new(
         lookfrom,
         lookat,
         vup,
-        settings.get_float("camera.vfov").unwrap(),
+        settings.vfov,
         aspect_ratio,
-        settings.get_float("camera.aperture").unwrap(),
-        settings.get_float("camera.focus_distance").unwrap(),
+        settings.aperture,
+        settings.focus_distance,
     );
 
     // Progress bar initialisation
@@ -195,15 +183,6 @@ pub fn render(sender: Sender<ColourPosition>, sync_snd: Sender<()>, settings: Co
                         pixel_colour += ray_colour(&r, &world, max_depth);
                     }
                     // It's okay to panic if this fails
-                    match sender.send(ColourPosition {
-                        colour: pixel_colour,
-                        point: (i, j as u32),
-                    }) {
-                        Ok(_) => (),
-                        Err(e) => {
-                            dbg!(e.to_string());
-                        }
-                    };
                     pixel_colour
                 })
                 .collect();
@@ -212,7 +191,6 @@ pub fn render(sender: Sender<ColourPosition>, sync_snd: Sender<()>, settings: Co
         })
         .collect();
 
-    sync_snd.send(()).unwrap();
     pb.finish();
     eprintln!("\nDone rendering!\nGenerating image...\n");
 
@@ -228,7 +206,6 @@ pub fn render(sender: Sender<ColourPosition>, sync_snd: Sender<()>, settings: Co
         }
     }
 
-    drop(sender);
     let path = format!("out/{}.png", Utc::now());
     img.save(path).unwrap();
 

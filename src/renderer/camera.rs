@@ -1,7 +1,7 @@
 use rand::random;
 
 use super::ray::*;
-use super::rtweekend::*;
+use crate::util::rtweekend::*;
 
 pub struct Camera {
     origin: Point3,

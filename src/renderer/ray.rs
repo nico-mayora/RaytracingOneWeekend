@@ -1,4 +1,4 @@
-use super::rtweekend::*;
+use crate::util::rtweekend::*;
 
 pub struct Ray {
     pub origin: Vec3,

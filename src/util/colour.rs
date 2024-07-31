@@ -4,7 +4,7 @@ use image::RgbImage;
 use num::clamp;
 use std::io::Write;
 
-pub fn drawn_colour(pixel_colour: Colour, samples_per_pixel: i32) -> [u8; 3] {
+pub fn drawn_colour(pixel_colour: Colour, samples_per_pixel: u32) -> [u8; 3] {
     let mut r = pixel_colour[0];
     let mut g = pixel_colour[1];
     let mut b = pixel_colour[2];
@@ -21,7 +21,7 @@ pub fn drawn_colour(pixel_colour: Colour, samples_per_pixel: i32) -> [u8; 3] {
     ]
 }
 
-pub fn drawn_colour_with_alpha(pixel_colour: Colour, samples_per_pixel: i32) -> [u8; 4] {
+pub fn drawn_colour_with_alpha(pixel_colour: Colour, samples_per_pixel: u32) -> [u8; 4] {
     let rgb = drawn_colour(pixel_colour, samples_per_pixel);
     [rgb[0], rgb[1], rgb[2], 0xFF]
 }
@@ -30,7 +30,7 @@ pub fn drawn_colour_with_alpha(pixel_colour: Colour, samples_per_pixel: i32) -> 
 pub fn write_colour<W: Write>(
     out: &mut W,
     pixel_colour: Colour,
-    samples_per_pixel: i32,
+    samples_per_pixel: u32,
 ) -> std::io::Result<()> {
     let rgb = drawn_colour(pixel_colour, samples_per_pixel);
 
@@ -51,7 +51,7 @@ pub fn write_colour<W: Write>(
 pub fn write_to_img(
     img: &mut RgbImage,
     pixel_colour: Colour,
-    samples_per_pixel: i32,
+    samples_per_pixel: u32,
     posx: i32,
     posy: i32,
 ) {

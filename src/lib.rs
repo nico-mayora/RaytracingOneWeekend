@@ -1,10 +1,4 @@
-pub mod camera;
-pub mod colour;
-pub mod hittable;
-pub mod hittable_list;
-pub mod material;
-pub mod ray;
-pub mod rtweekend;
-pub mod sphere;
-pub mod vec3rtext;
-pub mod raytracer;
+pub mod util;
+pub mod window;
+pub mod renderer;
+pub mod config;

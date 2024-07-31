@@ -1,7 +1,6 @@
 use super::hittable::HitRecord;
 use super::ray::Ray;
-use super::rtweekend::*;
-use super::vec3rtext::*;
+use crate::util::{rtweekend::*, vec3rtext::*};
 
 pub trait Material {
     // Returning None means the ray was abosorbed

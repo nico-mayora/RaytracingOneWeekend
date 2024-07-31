@@ -1,7 +1,7 @@
 use super::hittable::*;
 use super::material::Material;
 use super::ray::*;
-use super::rtweekend::*;
+use crate::util::rtweekend::*;
 use std::sync::Arc;
 
 pub struct Sphere {
